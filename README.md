@@ -12,7 +12,7 @@ A full-stack expense splitting app built with React Native, Expo, and Supabase.
 ## Project Structure
 
 ```
-splitBills/
+.
 ├── src/
 │   ├── api/              # Supabase client & API calls
 │   ├── components/       # Reusable UI components
@@ -21,9 +21,13 @@ splitBills/
 │   ├── contexts/         # React Context (Auth, etc.)
 │   ├── utils/            # Helper functions
 │   └── assets/           # Static assets (images, icons)
+├── assets/               # App icons and splash images
 ├── App.tsx               # Main app component
-├── .env.local           # Environment variables (Supabase keys)
-└── package.json
+├── index.js              # Expo entry point
+├── app.json              # Expo app configuration
+├── .env.local            # Environment variables (Supabase keys)
+├── package.json          # Dependencies and scripts
+└── README.md             # This file
 ```
 
 ## Prerequisites
@@ -38,7 +42,8 @@ splitBills/
 ### 1. Clone and Install
 
 ```bash
-cd splitBills
+git clone https://github.com/aniket-r2Dev2/splitYourBills.git
+cd splitYourBills
 npm install
 ```
 
