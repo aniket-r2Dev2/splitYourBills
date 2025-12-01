@@ -46,3 +46,60 @@ export const fetchExpenses = async (groupId: string) => {
     .select('*, splits(*)')
     .eq('group_id', groupId);
 };
+
+// Create a new group and add the creator as a member
+export const createGroup = async (data: {
+  name: string;
+  description?: string;
+  createdBy: string;
+}) => {
+  try {
+    // Insert the group
+    const { data: groupData, error: groupError } = await supabase
+      .from('groups')
+      .insert({
+        name: data.name,
+        description: data.description || null,
+        created_by: data.createdBy,
+      })
+      .select()
+      .single();
+
+    if (groupError) throw groupError;
+
+    // Add creator as a member
+    const { error: memberError } = await supabase
+      .from('group_members')
+      .insert({
+        group_id: groupData.id,
+        user_id: data.createdBy,
+      });
+
+    if (memberError) throw memberError;
+
+    return groupData;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Add a user to a group (group creator only)
+export const addGroupMember = async (groupId: string, userId: string) => {
+  return await supabase
+    .from('group_members')
+    .insert({
+      group_id: groupId,
+      user_id: userId,
+    })
+    .select()
+    .single();
+};
+
+// Get groups for the current user (groups they're members of)
+export const getUserGroups = async (userId: string) => {
+  return await supabase
+    .from('group_members')
+    .select('groups(*)')
+    .eq('user_id', userId);
+};
+

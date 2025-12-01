@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { supabase, fetchGroups } from '../api/supabase';
+import { supabase, getUserGroups } from '../api/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Group {
@@ -17,7 +17,10 @@ interface Group {
   description?: string;
 }
 
-export const GroupsScreen: React.FC<{ onAddGroup?: () => void }> = ({ onAddGroup }) => {
+export const GroupsScreen: React.FC<{ onAddGroup?: () => void; refreshTrigger?: number }> = ({ 
+  onAddGroup,
+  refreshTrigger 
+}) => {
   const { user, signOut } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,17 +28,21 @@ export const GroupsScreen: React.FC<{ onAddGroup?: () => void }> = ({ onAddGroup
 
   useEffect(() => {
     loadGroups();
-  }, []);
+  }, [refreshTrigger]);
 
   const loadGroups = async () => {
+    if (!user?.id) return;
+    
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await fetchGroups();
+      const { data, error: fetchError } = await getUserGroups(user.id);
       if (fetchError) {
         setError(fetchError.message);
       } else {
-        setGroups(data || []);
+        // Extract groups from the nested structure
+        const userGroups = data?.map((item: any) => item.groups).filter(Boolean) || [];
+        setGroups(userGroups);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load groups');
