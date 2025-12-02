@@ -103,3 +103,50 @@ export const getUserGroups = async (userId: string) => {
     .eq('user_id', userId);
 };
 
+// Create an expense and corresponding splits
+export const createExpense = async (data: {
+  groupId: string;
+  description: string;
+  amount: number;
+  paidBy: string;
+  participantIds: string[]; // list of user ids to split among
+}) => {
+  try {
+    // Insert expense
+    const { data: expenseData, error: expenseError } = await supabase
+      .from('expenses')
+      .insert({
+        group_id: data.groupId,
+        description: data.description,
+        amount: data.amount,
+        paid_by: data.paidBy,
+        date: new Date().toISOString().slice(0, 10),
+      })
+      .select()
+      .single();
+
+    if (expenseError) throw expenseError;
+
+    // Calculate equal split by default
+    const perUser = parseFloat((data.amount / data.participantIds.length).toFixed(2));
+
+    const splits = data.participantIds.map((uid) => ({
+      expense_id: expenseData.id,
+      user_id: uid,
+      amount: perUser,
+    }));
+
+    const { error: splitsError } = await supabase.from('splits').insert(splits);
+    if (splitsError) throw splitsError;
+
+    return expenseData;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Get expenses for a group including splits
+export const getGroupExpenses = async (groupId: string) => {
+  return await supabase.from('expenses').select('*, splits(*)').eq('group_id', groupId).order('created_at', { ascending: false });
+};
+

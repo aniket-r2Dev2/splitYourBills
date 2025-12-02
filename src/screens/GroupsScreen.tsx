@@ -17,8 +17,9 @@ interface Group {
   description?: string;
 }
 
-export const GroupsScreen: React.FC<{ onAddGroup?: () => void; refreshTrigger?: number }> = ({ 
+export const GroupsScreen: React.FC<{ onAddGroup?: () => void; onOpenGroup?: (group: Group) => void; refreshTrigger?: number }> = ({ 
   onAddGroup,
+  onOpenGroup,
   refreshTrigger 
 }) => {
   const { user, signOut } = useAuth();
@@ -60,7 +61,7 @@ export const GroupsScreen: React.FC<{ onAddGroup?: () => void; refreshTrigger?: 
   };
 
   const renderGroup = ({ item }: { item: Group }) => (
-    <TouchableOpacity style={styles.groupCard}>
+    <TouchableOpacity style={styles.groupCard} onPress={() => onOpenGroup && onOpenGroup(item)}>
       <Text style={styles.groupName}>{item.name}</Text>
       {item.description && <Text style={styles.groupDesc}>{item.description}</Text>}
     </TouchableOpacity>
