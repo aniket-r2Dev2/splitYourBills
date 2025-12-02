@@ -11,6 +11,23 @@ create table if not exists users (
 -- Enable Row Level Security
 alter table users enable row level security;
 
+-- Drop existing policies if present (helps re-running this script safely)
+drop policy if exists "Users can read their own profile" on users;
+drop policy if exists "Users can update their own profile" on users;
+drop policy if exists "Users can see their groups" on groups;
+drop policy if exists "Group creator can update" on groups;
+drop policy if exists "Group creator can delete" on groups;
+drop policy if exists "Users can create groups" on groups;
+drop policy if exists "Users can see group members" on group_members;
+drop policy if exists "Group creator can add members" on group_members;
+drop policy if exists "Users can see group expenses" on expenses;
+drop policy if exists "Expense payer can update" on expenses;
+drop policy if exists "Expense payer can delete" on expenses;
+drop policy if exists "Users can create expenses" on expenses;
+drop policy if exists "Users can see expense splits" on splits;
+drop policy if exists "Expense payer can create splits" on splits;
+drop policy if exists "Users can see group settlements" on settlements;
+
 -- RLS Policy: Users can read their own profile
 create policy "Users can read their own profile"
   on users for select
@@ -212,6 +229,11 @@ begin
   return new;
 end;
 $$ language plpgsql;
+
+-- Drop existing triggers if present to allow re-running this script
+drop trigger if exists update_users_updated_at on users;
+drop trigger if exists update_groups_updated_at on groups;
+drop trigger if exists update_expenses_updated_at on expenses;
 
 create trigger update_users_updated_at
   before update on users
