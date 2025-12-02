@@ -64,6 +64,11 @@ create policy "Group creator can delete"
   on groups for delete
   using (auth.uid() = created_by);
 
+-- RLS Policy: Users can create groups (must set created_by to their auth uid)
+create policy "Users can create groups"
+  on groups for insert
+  with check (auth.uid() = created_by);
+
 -- RLS Policy: Users can see members of groups they're in
 create policy "Users can see group members"
   on group_members for select
@@ -122,6 +127,13 @@ create policy "Expense payer can delete"
   on expenses for delete
   using (auth.uid() = paid_by);
 
+-- RLS Policy: Users can create expenses if they are the payer
+create policy "Users can create expenses"
+  on expenses for insert
+  with check (
+    auth.uid() = paid_by
+  );
+
 -- Splits Table (tracks who owes what on an expense)
 create table if not exists splits (
   id uuid primary key default gen_random_uuid(),
@@ -143,6 +155,17 @@ create policy "Users can see expense splits"
       join group_members on group_members.group_id = expenses.group_id
       where expenses.id = splits.expense_id
       and group_members.user_id = auth.uid()
+    )
+  );
+
+-- RLS Policy: Expense payer can create splits for an expense
+create policy "Expense payer can create splits"
+  on splits for insert
+  with check (
+    exists (
+      select 1 from expenses
+      where expenses.id = splits.expense_id
+      and expenses.paid_by = auth.uid()
     )
   );
 
