@@ -219,6 +219,26 @@ create index if not exists idx_splits_user on splits(user_id);
 create index if not exists idx_settlements_group on settlements(group_id);
 create index if not exists idx_settlements_users on settlements(from_user_id, to_user_id);
 
+-- Trigger to auto-create user record when auth user is created
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.users (id, email, name)
+  values (new.id, new.email, coalesce(new.user_metadata->>'name', ''))
+  on conflict (id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Drop existing trigger if present
+drop trigger if exists on_auth_user_created on auth.users;
+
+-- Create trigger for new auth users
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user();
+
 -- Trigger to update updated_at timestamps
 create or replace function update_updated_at_column()
 returns trigger as $$
