@@ -150,3 +150,108 @@ export const getGroupExpenses = async (groupId: string) => {
   return await supabase.from('expenses').select('*, splits(*)').eq('group_id', groupId).order('created_at', { ascending: false });
 };
 
+// Calculate settlements for a group based on expenses and splits
+// Returns array of settlements: {from: userId, to: userId, amount: number}
+export const calculateSettlements = async (groupId: string) => {
+  try {
+    // Get all expenses and splits for the group
+    const { data: expenses, error: expError } = await supabase
+      .from('expenses')
+      .select('*, splits(*)')
+      .eq('group_id', groupId);
+
+    if (expError) throw expError;
+
+    // Build a balance map: balance[userId] = net amount (positive = owed to, negative = owes)
+    const balance: Record<string, number> = {};
+
+    expenses.forEach((expense: any) => {
+      const paidBy = expense.paid_by;
+      const totalAmount = parseFloat(expense.amount);
+
+      // Initialize payer if not exists
+      if (!balance[paidBy]) balance[paidBy] = 0;
+
+      // Add the amount paid by this person
+      balance[paidBy] += totalAmount;
+
+      // Subtract each person's share
+      expense.splits.forEach((split: any) => {
+        const userId = split.user_id;
+        const splitAmount = parseFloat(split.amount);
+        if (!balance[userId]) balance[userId] = 0;
+        balance[userId] -= splitAmount;
+      });
+    });
+
+    // Convert balances to settlements (who owes whom)
+    const settlements: Array<{ from: string; to: string; amount: number }> = [];
+    const debtors = Object.entries(balance).filter(([, amt]) => amt < 0);
+    const creditors = Object.entries(balance).filter(([, amt]) => amt > 0);
+
+    // Simple greedy algorithm: match debtors with creditors
+    for (const [debtor, debtAmount] of debtors) {
+      let remaining = Math.abs(debtAmount);
+
+      for (let i = 0; i < creditors.length && remaining > 0; i++) {
+        const [creditor, creditAmount] = creditors[i];
+        const settleAmount = Math.min(remaining, creditAmount);
+
+        if (settleAmount > 0) {
+          settlements.push({
+            from: debtor,
+            to: creditor,
+            amount: parseFloat(settleAmount.toFixed(2)),
+          });
+
+          creditors[i][1] -= settleAmount;
+          remaining -= settleAmount;
+        }
+      }
+    }
+
+    return settlements;
+  } catch (error) {
+    console.error('Error calculating settlements:', error);
+    throw error;
+  }
+};
+
+// Get settlement summary for a group (balances per user)
+export const getGroupBalances = async (groupId: string) => {
+  try {
+    const { data: expenses, error: expError } = await supabase
+      .from('expenses')
+      .select('*, splits(*)')
+      .eq('group_id', groupId);
+
+    if (expError) throw expError;
+
+    const balance: Record<string, number> = {};
+
+    expenses.forEach((expense: any) => {
+      const paidBy = expense.paid_by;
+      const totalAmount = parseFloat(expense.amount);
+
+      if (!balance[paidBy]) balance[paidBy] = 0;
+      balance[paidBy] += totalAmount;
+
+      expense.splits.forEach((split: any) => {
+        const userId = split.user_id;
+        const splitAmount = parseFloat(split.amount);
+        if (!balance[userId]) balance[userId] = 0;
+        balance[userId] -= splitAmount;
+      });
+    });
+
+    // Return as array with user details
+    return Object.entries(balance).map(([userId, amount]) => ({
+      userId,
+      balance: parseFloat(amount.toFixed(2)),
+    }));
+  } catch (error) {
+    console.error('Error getting group balances:', error);
+    throw error;
+  }
+};
+
