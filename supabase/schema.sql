@@ -13,6 +13,7 @@ alter table users enable row level security;
 
 -- Drop existing policies if present (helps re-running this script safely)
 drop policy if exists "Users can read their own profile" on users;
+drop policy if exists "Allow reading user records" on users;
 drop policy if exists "Users can update their own profile" on users;
 drop policy if exists "Users can insert their own profile" on users;
 drop policy if exists "Users can see their groups" on groups;
@@ -33,6 +34,11 @@ drop policy if exists "Users can see group settlements" on settlements;
 create policy "Users can read their own profile"
   on users for select
   using (auth.uid() = id);
+
+-- RLS Policy: Allow reading any user record (for FK checks and member lists)
+create policy "Allow reading user records"
+  on users for select
+  using (auth.role() = 'authenticated');
 
 -- RLS Policy: Users can update their own profile
 create policy "Users can update their own profile"
