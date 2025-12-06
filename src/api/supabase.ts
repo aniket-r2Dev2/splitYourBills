@@ -145,6 +145,45 @@ export const createExpense = async (data: {
   }
 };
 
+// Create an expense with custom split amounts
+export const createExpenseWithCustomSplits = async (data: {
+  groupId: string;
+  description: string;
+  amount: number;
+  paidBy: string;
+  splits: Array<{ userId: string; amount: number }>;
+}) => {
+  try {
+    // Insert expense
+    const { data: expenseData, error: expenseError } = await supabase
+      .from('expenses')
+      .insert({
+        group_id: data.groupId,
+        description: data.description,
+        amount: data.amount,
+        paid_by: data.paidBy,
+        date: new Date().toISOString().slice(0, 10),
+      })
+      .select()
+      .single();
+
+    if (expenseError) throw expenseError;
+
+    const splits = data.splits.map((split) => ({
+      expense_id: expenseData.id,
+      user_id: split.userId,
+      amount: parseFloat(split.amount.toFixed(2)),
+    }));
+
+    const { error: splitsError } = await supabase.from('splits').insert(splits);
+    if (splitsError) throw splitsError;
+
+    return expenseData;
+  } catch (error) {
+    throw error;
+  }
+};
+
 // Get expenses for a group including splits
 export const getGroupExpenses = async (groupId: string) => {
   return await supabase.from('expenses').select('*, splits(*)').eq('group_id', groupId).order('created_at', { ascending: false });
