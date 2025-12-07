@@ -27,6 +27,8 @@ drop policy if exists "Users can see group expenses" on expenses;
 drop policy if exists "Expense payer can update" on expenses;
 drop policy if exists "Expense payer can delete" on expenses;
 drop policy if exists "Users can create expenses" on expenses;
+drop policy if exists "Users can see expense payers" on expense_payers;
+drop policy if exists "Expense creator can create payers" on expense_payers;
 drop policy if exists "Users can see expense splits" on splits;
 drop policy if exists "Expense payer can create splits" on splits;
 drop policy if exists "Users can see group settlements" on settlements;
@@ -160,6 +162,41 @@ create policy "Users can create expenses"
   on expenses for insert
   with check (
     auth.uid() = paid_by
+  );
+
+-- Expense Payers Table (tracks multiple payers for one expense)
+create table if not exists expense_payers (
+  id uuid primary key default gen_random_uuid(),
+  expense_id uuid not null references expenses(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  amount decimal(10, 2) not null,
+  created_at timestamp default now(),
+  unique(expense_id, user_id)
+);
+
+alter table expense_payers enable row level security;
+
+-- RLS Policy: Users can see expense payers for expenses in their groups
+create policy "Users can see expense payers"
+  on expense_payers for select
+  using (
+    exists (
+      select 1 from expenses
+      join group_members on group_members.group_id = expenses.group_id
+      where expenses.id = expense_payers.expense_id
+      and group_members.user_id = auth.uid()
+    )
+  );
+
+-- RLS Policy: Expense creator can add payers
+create policy "Expense creator can create payers"
+  on expense_payers for insert
+  with check (
+    exists (
+      select 1 from expenses
+      where expenses.id = expense_payers.expense_id
+      and expenses.paid_by = auth.uid()
+    )
   );
 
 -- Splits Table (tracks who owes what on an expense)
