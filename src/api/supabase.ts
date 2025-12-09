@@ -294,3 +294,58 @@ export const getGroupBalances = async (groupId: string) => {
   }
 };
 
+// Create an expense with multiple payers and splits
+export const createExpenseWithMultiplePayers = async (data: {
+  groupId: string;
+  description: string;
+  amount: number;
+  payers: Array<{ userId: string; amount: number }>;
+  splits: Array<{ userId: string; amount: number }>;
+}) => {
+  try {
+    // Use first payer as the primary paid_by (main payer)
+    const primaryPayer = data.payers[0].userId;
+
+    // Insert expense with primary payer
+    const { data: expenseData, error: expenseError } = await supabase
+      .from('expenses')
+      .insert({
+        group_id: data.groupId,
+        description: data.description,
+        amount: data.amount,
+        paid_by: primaryPayer,
+        date: new Date().toISOString().slice(0, 10),
+      })
+      .select()
+      .single();
+
+    if (expenseError) throw expenseError;
+
+    // Insert splits
+    const splits = data.splits.map((split) => ({
+      expense_id: expenseData.id,
+      user_id: split.userId,
+      amount: parseFloat(split.amount.toFixed(2)),
+    }));
+
+    const { error: splitsError } = await supabase.from('splits').insert(splits);
+    if (splitsError) throw splitsError;
+
+    // Insert expense payers for all contributors
+    const payers = data.payers.map((payer) => ({
+      expense_id: expenseData.id,
+      user_id: payer.userId,
+      amount: parseFloat(payer.amount.toFixed(2)),
+    }));
+
+    const { error: payersError } = await supabase
+      .from('expense_payers')
+      .insert(payers);
+    if (payersError) throw payersError;
+
+    return expenseData;
+  } catch (error) {
+    throw error;
+  }
+};
+
