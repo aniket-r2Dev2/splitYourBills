@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { getGroupExpenses, fetchGroupMembers, getGroupBalances } from '../api/supabase';
+import { calculateGroupDebts, SettlementTransaction } from '../api/debtSimplification';
 import { useAuth } from '../contexts/AuthContext';
 
 type Group = {
@@ -19,8 +20,10 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
   const [expenses, setExpenses] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [balances, setBalances] = useState<BalanceItem[]>([]);
+  const [settlements, setSettlements] = useState<SettlementTransaction[]>([]);
   const [memberMap, setMemberMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -28,18 +31,22 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       // Load expenses
       const { data: expData, error: expError } = await getGroupExpenses(group.id);
       if (expError) {
-        Alert.alert('Error', expError.message || 'Failed to load expenses');
+        throw new Error(expError.message || 'Failed to load expenses');
       } else {
         setExpenses(expData || []);
       }
 
       // Load members
       const { data: memberData, error: memberError } = await fetchGroupMembers(group.id);
-      if (!memberError && memberData) {
+      if (memberError) {
+        throw new Error(memberError.message || 'Failed to load members');
+      }
+      if (memberData) {
         const membersList = memberData.map((r: any) => r.users);
         setMembers(membersList);
         // Create a map of userId -> email for display
@@ -53,8 +60,20 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
       // Load balances
       const balData = await getGroupBalances(group.id);
       setBalances(balData);
+
+      // Calculate simplified settlements using debt algorithm
+      try {
+        const calculatedSettlements = await calculateGroupDebts(group.id);
+        setSettlements(calculatedSettlements);
+      } catch (debtError: any) {
+        console.warn('Debt simplification warning:', debtError.message);
+        // Don't fail entire load if debt calculation fails
+        setSettlements([]);
+      }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load group data');
+      const errorMsg = err.message || 'Failed to load group data';
+      setError(errorMsg);
+      Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -83,6 +102,26 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
     );
   };
 
+  const renderSettlement = ({ item }: { item: SettlementTransaction }) => {
+    const payerName = memberMap[item.payer_id] || item.payer_id;
+    const payeeName = memberMap[item.payee_id] || item.payee_id;
+    return (
+      <View style={styles.settlementCard}>
+        <View style={styles.settlementContent}>
+          <Text style={styles.settlementText}>
+            <Text style={styles.settlementName}>{payerName}</Text>
+            <Text style={styles.settlementArrow}> → </Text>
+            <Text style={styles.settlementName}>{payeeName}</Text>
+          </Text>
+          <Text style={styles.settlementAmount}>₹{item.amount.toFixed(2)}</Text>
+        </View>
+        <View style={styles.settlementStatus}>
+          <Text style={styles.settlementStatusText}>⚠ Pending</Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -100,12 +139,37 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
 
       {loading ? (
         <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
+      ) : error ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>Error: {error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={loadData}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 80 }}>
+          {/* Simplified Settlements Section */}
+          {settlements.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderContainer}>
+                <Text style={styles.sectionTitle}>💰 Settlements Needed</Text>
+                <Text style={styles.settlementBadge}>{settlements.length}</Text>
+              </View>
+              <FlatList
+                scrollEnabled={false}
+                data={settlements}
+                renderItem={renderSettlement}
+                keyExtractor={(item, index) => `${item.payer_id}-${item.payee_id}-${index}`}
+                contentContainerStyle={{ gap: 10 }}
+              />
+              <Text style={styles.settlementHint}>Tap any settlement to record payment (coming soon)</Text>
+            </View>
+          )}
+
           {/* Balances Section */}
           {balances.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Settlement Summary</Text>
+              <Text style={styles.sectionTitle}>📊 Balance Summary</Text>
               {balances.map((bal) => (
                 <View key={bal.userId} style={styles.balanceRow}>
                   <Text style={styles.balanceName}>{memberMap[bal.userId] || bal.userId}</Text>
@@ -120,7 +184,7 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
           {/* Expenses Section */}
           {expenses.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Expenses</Text>
+              <Text style={styles.sectionTitle}>📋 Expenses</Text>
               <FlatList
                 scrollEnabled={false}
                 data={expenses}
@@ -131,9 +195,10 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
             </View>
           )}
 
-          {expenses.length === 0 && !loading && (
+          {expenses.length === 0 && settlements.length === 0 && !loading && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No expenses yet</Text>
+              <Text style={styles.emptySubtext}>Add an expense to get started</Text>
             </View>
           )}
         </ScrollView>
@@ -192,11 +257,75 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 16,
   },
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
+  },
+  settlementBadge: {
+    backgroundColor: '#FF3B30',
+    color: '#fff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  settlementCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9500',
+    padding: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  settlementContent: {
+    flex: 1,
+  },
+  settlementText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#333',
+  },
+  settlementName: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  settlementArrow: {
+    color: '#FF9500',
+    marginHorizontal: 4,
+  },
+  settlementAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+    marginTop: 6,
+  },
+  settlementStatus: {
+    backgroundColor: '#FFE5CC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  settlementStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FF9500',
+  },
+  settlementHint: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: 8,
   },
   balanceRow: {
     flexDirection: 'row',
@@ -268,6 +397,24 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#999',
     fontSize: 16,
+    fontWeight: '500',
+  },
+  emptySubtext: {
+    color: '#ccc',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  retryBtn: {
+    marginTop: 16,
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  retryBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   addBtn: {
     backgroundColor: '#007AFF',
