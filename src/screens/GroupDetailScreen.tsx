@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { getGroupExpenses, fetchGroupMembers, getGroupBalances } from '../api/supabase';
 import { calculateGroupDebts, SettlementTransaction } from '../api/debtSimplification';
+import SettlementModal from '../components/SettlementModal';
 import { useAuth } from '../contexts/AuthContext';
 
 type Group = {
@@ -24,6 +25,8 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
   const [memberMap, setMemberMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedSettlement, setSelectedSettlement] = useState<SettlementTransaction | null>(null);
 
   useEffect(() => {
     loadData();
@@ -79,6 +82,16 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
     }
   };
 
+  const handleSettlementPress = (settlement: SettlementTransaction) => {
+    setSelectedSettlement(settlement);
+    setModalVisible(true);
+  };
+
+  const handleSettlementSuccess = () => {
+    // Reload data to update settlements
+    loadData();
+  };
+
   const renderExpense = ({ item }: { item: any }) => (
     <View style={styles.expenseCard}>
       <Text style={styles.expenseDesc}>{item.description}</Text>
@@ -106,7 +119,11 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
     const payerName = memberMap[item.payer_id] || item.payer_id;
     const payeeName = memberMap[item.payee_id] || item.payee_id;
     return (
-      <View style={styles.settlementCard}>
+      <TouchableOpacity 
+        style={styles.settlementCard}
+        onPress={() => handleSettlementPress(item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.settlementContent}>
           <Text style={styles.settlementText}>
             <Text style={styles.settlementName}>{payerName}</Text>
@@ -118,7 +135,7 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
         <View style={styles.settlementStatus}>
           <Text style={styles.settlementStatusText}>⚠ Pending</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -162,7 +179,7 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
                 keyExtractor={(item, index) => `${item.payer_id}-${item.payee_id}-${index}`}
                 contentContainerStyle={{ gap: 10 }}
               />
-              <Text style={styles.settlementHint}>Tap any settlement to record payment (coming soon)</Text>
+              <Text style={styles.settlementHint}>Tap any settlement to record payment</Text>
             </View>
           )}
 
@@ -202,6 +219,19 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
             </View>
           )}
         </ScrollView>
+      )}
+
+      {/* Settlement Recording Modal */}
+      {selectedSettlement && (
+        <SettlementModal
+          visible={modalVisible}
+          settlement={selectedSettlement}
+          groupId={group.id}
+          payerName={memberMap[selectedSettlement.payer_id] || selectedSettlement.payer_id}
+          payeeName={memberMap[selectedSettlement.payee_id] || selectedSettlement.payee_id}
+          onClose={() => setModalVisible(false)}
+          onSuccess={handleSettlementSuccess}
+        />
       )}
 
       <TouchableOpacity style={styles.addBtn} onPress={() => onAddExpense(group.id)}>
