@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { getGroupExpenses, fetchGroupMembers, getGroupBalances } from '../api/supabase';
 import { calculateGroupDebts, SettlementTransaction } from '../api/debtSimplification';
 import SettlementModal from '../components/SettlementModal';
+import ExpenseDetailScreen from './ExpenseDetailScreen';
 import { useAuth } from '../contexts/AuthContext';
 
 type Group = {
@@ -27,6 +28,7 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
   const [error, setError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedSettlement, setSelectedSettlement] = useState<SettlementTransaction | null>(null);
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -92,12 +94,45 @@ export default function GroupDetailScreen({ group, onAddExpense, onBack, refresh
     loadData();
   };
 
+  const handleExpensePress = (expenseId: string) => {
+    setSelectedExpenseId(expenseId);
+  };
+
+  const handleExpenseDetailBack = () => {
+    setSelectedExpenseId(null);
+    // Optionally reload data if changes were made
+    loadData();
+  };
+
+  // If expense is selected, show detail view
+  if (selectedExpenseId) {
+    return (
+      <ExpenseDetailScreen
+        expenseId={selectedExpenseId}
+        onBack={handleExpenseDetailBack}
+        onEdit={(id) => {
+          // TODO: Implement edit functionality (Issue #3)
+          Alert.alert('Coming Soon', 'Expense editing will be available soon!');
+        }}
+        onDelete={(id) => {
+          // TODO: Implement delete functionality (Issue #3)
+          Alert.alert('Coming Soon', 'Expense deletion will be available soon!');
+        }}
+      />
+    );
+  }
+
   const renderExpense = ({ item }: { item: any }) => (
-    <View style={styles.expenseCard}>
+    <TouchableOpacity
+      style={styles.expenseCard}
+      onPress={() => handleExpensePress(item.id)}
+      activeOpacity={0.7}
+    >
       <Text style={styles.expenseDesc}>{item.description}</Text>
       <Text style={styles.expenseAmount}>₹{item.amount}</Text>
       <Text style={styles.expenseMeta}>Paid by: {memberMap[item.paid_by] || item.paid_by}</Text>
-    </View>
+      <Text style={styles.tapHint}>Tap for details</Text>
+    </TouchableOpacity>
   );
 
   const renderBalance = ({ item }: { item: BalanceItem }) => {
@@ -417,6 +452,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     color: '#777',
+  },
+  tapHint: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#007AFF',
+    fontStyle: 'italic',
   },
   emptyState: {
     flex: 1,
