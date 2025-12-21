@@ -11,32 +11,54 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 
-export const LoginScreen: React.FC<{ onSignUp?: () => void }> = ({ onSignUp }) => {
-  const { signIn, loading } = useAuth();
+export const SignUpScreen: React.FC<{ onBackToLogin?: () => void }> = ({ onBackToLogin }) => {
+  const { signUp, loading } = useAuth();
   const { theme } = useTheme();
   const { colors } = theme;
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleLogin = async () => {
-    if (!email || !password) {
+  const handleSignUp = async () => {
+    // Validation
+    if (!email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
     try {
-      await signIn(email, password);
+      await signUp(email, password);
+      Alert.alert(
+        'Success',
+        'Account created! Please check your email to verify your account.',
+        [
+          {
+            text: 'OK',
+            onPress: onBackToLogin,
+          },
+        ]
+      );
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'An error occurred');
+      Alert.alert('Sign Up Failed', error.message || 'An error occurred');
     }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Split Your Bills</Text>
+      <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Track and split expenses with friends
+        Sign up to start splitting bills
       </Text>
 
       <TextInput
@@ -66,10 +88,27 @@ export const LoginScreen: React.FC<{ onSignUp?: () => void }> = ({ onSignUp }) =
             color: colors.inputText,
           },
         ]}
-        placeholder="Password"
+        placeholder="Password (min 6 characters)"
         placeholderTextColor={colors.inputPlaceholder}
         value={password}
         onChangeText={setPassword}
+        secureTextEntry
+        editable={!loading}
+      />
+
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+            color: colors.inputText,
+          },
+        ]}
+        placeholder="Confirm Password"
+        placeholderTextColor={colors.inputPlaceholder}
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
         secureTextEntry
         editable={!loading}
       />
@@ -80,21 +119,21 @@ export const LoginScreen: React.FC<{ onSignUp?: () => void }> = ({ onSignUp }) =
           { backgroundColor: colors.primary },
           loading && styles.buttonDisabled,
         ]}
-        onPress={handleLogin}
+        onPress={handleSignUp}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color={colors.textInverse} />
         ) : (
           <Text style={[styles.buttonText, { color: colors.textInverse }]}>
-            Login
+            Sign Up
           </Text>
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={onSignUp} disabled={loading}>
-        <Text style={[styles.signupLink, { color: colors.primary }]}>
-          Don't have an account? Sign Up
+      <TouchableOpacity onPress={onBackToLogin} disabled={loading}>
+        <Text style={[styles.loginLink, { color: colors.primary }]}>
+          Already have an account? Login
         </Text>
       </TouchableOpacity>
     </View>
@@ -138,7 +177,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  signupLink: {
+  loginLink: {
     textAlign: 'center',
     marginTop: 20,
     fontSize: 14,

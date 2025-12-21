@@ -5,18 +5,21 @@ import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { useTheme } from './src/hooks/useTheme';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { SignUpScreen } from './src/screens/SignUpScreen';
 import { GroupsScreen } from './src/screens/GroupsScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import GroupDetailScreen from './src/screens/GroupDetailScreen';
 import AddExpenseScreen from './src/screens/AddExpenseScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 
+type Screen = 'login' | 'signup' | 'groups' | 'createGroup' | 'groupDetail' | 'addExpense' | 'settings';
+
 function AppContent() {
   const { session, loading } = useAuth();
   const { theme } = useTheme();
   const { colors } = theme;
   
-  const [currentScreen, setCurrentScreen] = useState<'groups' | 'createGroup' | 'groupDetail' | 'addExpense' | 'settings'>('groups');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentGroup, setCurrentGroup] = useState<any | null>(null);
 
@@ -31,8 +34,12 @@ function AppContent() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!session ? (
-        <LoginScreen />
-      ) : currentScreen === 'groups' ? (
+        currentScreen === 'signup' ? (
+          <SignUpScreen onBackToLogin={() => setCurrentScreen('login')} />
+        ) : (
+          <LoginScreen onSignUp={() => setCurrentScreen('signup')} />
+        )
+      ) : currentScreen === 'groups' || currentScreen === 'login' || currentScreen === 'signup' ? (
         <GroupsScreen 
           onAddGroup={() => setCurrentScreen('createGroup')}
           onOpenGroup={(g) => { setCurrentGroup(g); setCurrentScreen('groupDetail'); }}
