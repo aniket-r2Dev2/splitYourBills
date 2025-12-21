@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { supabase, getUserGroups } from '../api/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../hooks/useTheme';
 
 interface Group {
   id: string;
@@ -17,12 +18,21 @@ interface Group {
   description?: string;
 }
 
-export const GroupsScreen: React.FC<{ onAddGroup?: () => void; onOpenGroup?: (group: Group) => void; refreshTrigger?: number }> = ({ 
+export const GroupsScreen: React.FC<{ 
+  onAddGroup?: () => void; 
+  onOpenGroup?: (group: Group) => void; 
+  onOpenSettings?: () => void;
+  refreshTrigger?: number 
+}> = ({ 
   onAddGroup,
   onOpenGroup,
+  onOpenSettings,
   refreshTrigger 
 }) => {
   const { user, signOut } = useAuth();
+  const { theme } = useTheme();
+  const { colors } = theme;
+  
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,39 +71,84 @@ export const GroupsScreen: React.FC<{ onAddGroup?: () => void; onOpenGroup?: (gr
   };
 
   const renderGroup = ({ item }: { item: Group }) => (
-    <TouchableOpacity style={styles.groupCard} onPress={() => onOpenGroup && onOpenGroup(item)}>
-      <Text style={styles.groupName}>{item.name}</Text>
-      {item.description && <Text style={styles.groupDesc}>{item.description}</Text>}
+    <TouchableOpacity 
+      style={[
+        styles.groupCard, 
+        { 
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+        }
+      ]} 
+      onPress={() => onOpenGroup && onOpenGroup(item)}
+    >
+      <Text style={[styles.groupName, { color: colors.text }]}>{item.name}</Text>
+      {item.description && (
+        <Text style={[styles.groupDesc, { color: colors.textSecondary }]}>
+          {item.description}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
+      <View style={[
+        styles.header,
+        { 
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border,
+        }
+      ]}>
         <View>
-          <Text style={styles.headerTitle}>Groups</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Groups</Text>
+          <Text style={[styles.userEmail, { color: colors.textTertiary }]}>{user?.email}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {onOpenSettings && (
+            <TouchableOpacity 
+              style={[
+                styles.settingsBtn,
+                { backgroundColor: colors.backgroundSecondary }
+              ]} 
+              onPress={onOpenSettings}
+            >
+              <Text style={[styles.settingsBtnText, { color: colors.primary }]}>⚙️</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            style={[
+              styles.logoutBtn,
+              { backgroundColor: colors.backgroundSecondary }
+            ]} 
+            onPress={handleLogout}
+          >
+            <Text style={[styles.logoutText, { color: colors.error }]}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={loadGroups}>
-            <Text style={styles.retryText}>Retry</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+          <TouchableOpacity 
+            style={[styles.retryBtn, { backgroundColor: colors.primary }]} 
+            onPress={loadGroups}
+          >
+            <Text style={[styles.retryText, { color: colors.textInverse }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.content}>
           {groups.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No groups yet</Text>
-              <Text style={styles.emptySubText}>Create a group to get started</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No groups yet
+              </Text>
+              <Text style={[styles.emptySubText, { color: colors.textTertiary }]}>
+                Create a group to get started
+              </Text>
             </View>
           ) : (
             <FlatList
@@ -106,8 +161,11 @@ export const GroupsScreen: React.FC<{ onAddGroup?: () => void; onOpenGroup?: (gr
         </View>
       )}
 
-      <TouchableOpacity style={styles.addBtn} onPress={onAddGroup}>
-        <Text style={styles.addBtnText}>+ Add Group</Text>
+      <TouchableOpacity 
+        style={[styles.addBtn, { backgroundColor: colors.primary }]} 
+        onPress={onAddGroup}
+      >
+        <Text style={[styles.addBtnText, { color: colors.textInverse }]}>+ Add Group</Text>
       </TouchableOpacity>
     </View>
   );
@@ -116,37 +174,42 @@ export const GroupsScreen: React.FC<{ onAddGroup?: () => void; onOpenGroup?: (gr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#fff',
     padding: 20,
     paddingTop: 40,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
   },
   userEmail: {
     fontSize: 12,
-    color: '#999',
     marginTop: 4,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  settingsBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  settingsBtnText: {
+    fontSize: 18,
+  },
   logoutBtn: {
-    backgroundColor: '#f0f0f0',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
   logoutText: {
     fontSize: 12,
-    color: '#007AFF',
     fontWeight: '600',
   },
   content: {
@@ -156,21 +219,17 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   groupCard: {
-    backgroundColor: '#fff',
     padding: 16,
     marginBottom: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#eee',
   },
   groupName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
   },
   groupDesc: {
     fontSize: 13,
-    color: '#666',
     marginTop: 4,
   },
   emptyContainer: {
@@ -181,11 +240,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#999',
   },
   emptySubText: {
     fontSize: 13,
-    color: '#bbb',
     marginTop: 4,
   },
   loader: {
@@ -200,29 +257,24 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: '#d32f2f',
     textAlign: 'center',
   },
   retryBtn: {
     marginTop: 16,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: '#007AFF',
     borderRadius: 6,
   },
   retryText: {
-    color: '#fff',
     fontWeight: '600',
   },
   addBtn: {
-    backgroundColor: '#007AFF',
     margin: 16,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
   addBtnText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
