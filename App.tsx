@@ -2,34 +2,41 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { ThemeProvider } from './src/contexts/ThemeContext';
+import { useTheme } from './src/hooks/useTheme';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { GroupsScreen } from './src/screens/GroupsScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import GroupDetailScreen from './src/screens/GroupDetailScreen';
 import AddExpenseScreen from './src/screens/AddExpenseScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 function AppContent() {
   const { session, loading } = useAuth();
-  const [currentScreen, setCurrentScreen] = useState<'groups' | 'createGroup' | 'groupDetail' | 'addExpense'>('groups');
+  const { theme } = useTheme();
+  const { colors } = theme;
+  
+  const [currentScreen, setCurrentScreen] = useState<'groups' | 'createGroup' | 'groupDetail' | 'addExpense' | 'settings'>('groups');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentGroup, setCurrentGroup] = useState<any | null>(null);
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <StatusBar style="auto" />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!session ? (
         <LoginScreen />
       ) : currentScreen === 'groups' ? (
         <GroupsScreen 
           onAddGroup={() => setCurrentScreen('createGroup')}
           onOpenGroup={(g) => { setCurrentGroup(g); setCurrentScreen('groupDetail'); }}
+          onOpenSettings={() => setCurrentScreen('settings')}
           refreshTrigger={refreshTrigger}
         />
       ) : currentScreen === 'createGroup' ? (
@@ -53,13 +60,17 @@ function AppContent() {
           onCreated={() => { setCurrentScreen('groupDetail'); setRefreshTrigger(prev => prev + 1); }}
           onCancel={() => setCurrentScreen('groupDetail')}
         />
+      ) : currentScreen === 'settings' ? (
+        <SettingsScreen
+          onBack={() => setCurrentScreen('groups')}
+        />
       ) : null}
-      <StatusBar style="auto" />
+      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
     </View>
   );
 }
 
-export default function App() {
+function AppWithAuth() {
   return (
     <AuthProvider>
       <AppContent />
@@ -67,9 +78,16 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppWithAuth />
+    </ThemeProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
 });
