@@ -10,12 +10,15 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Switch,
 } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { ThemeMode } from '../theme';
 
-export default function SettingsScreen() {
+interface SettingsScreenProps {
+  onBack?: () => void;
+}
+
+export default function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { theme, themeMode, setThemeMode } = useTheme();
   const { colors } = theme;
 
@@ -30,8 +33,18 @@ export default function SettingsScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <View style={styles.content}>
-        {/* Header */}
+        {/* Header with Back Button */}
         <View style={styles.header}>
+          {onBack && (
+            <TouchableOpacity
+              onPress={onBack}
+              style={[styles.backButton, { backgroundColor: colors.surface }]}
+            >
+              <Text style={[styles.backButtonText, { color: colors.primary }]}>
+                ← Back
+              </Text>
+            </TouchableOpacity>
+          )}
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             Settings
           </Text>
@@ -167,6 +180,17 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingVertical: 20,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 32,
