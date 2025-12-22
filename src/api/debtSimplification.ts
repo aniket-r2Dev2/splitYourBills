@@ -47,8 +47,8 @@ export async function calculateGroupDebts(
         payers:expense_payers(user_id, amount)
       `
       )
-      .eq('group_id', groupId)
-      .eq('is_deleted', false);
+      .eq('group_id', groupId);
+      // Note: removed .eq('is_deleted', false) - column doesn't exist in schema
 
     if (expenseError) {
       throw new Error(`Failed to fetch expenses: ${expenseError.message}`);
